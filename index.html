@@ -63,7 +63,7 @@
         <h1>Scroll积分批量查询</h1>
         <div class="info">
             <p>支持Scroll两种不同的查询模式，更快更安全！</p>
-            <p>前后端源代码已开源，任何人都可以自己部署：<a href="https://github.com/lyen1688/linea_bot/" target="_blank">github</a></p>
+            <p>前后端源代码已开源，任何人都可以自己部署：<a href="https://github.com/lyen1688/Scroll" target="_blank">github</a></p>
             <p>重要提示：我们不会收集任何用户信息，更不会去举报女巫。你可以不用，但别诋毁。</p>
             <p><a href="https://ybot.io" target="_blank">Runes符文批量铸造：ybot.io&nbsp;<i class="bi bi-box-arrow-up-right"></i></a>（全网铸造成本最低，支持无限加速！）</p>
         </div>
@@ -190,12 +190,12 @@
             }
 
             const data = await response.json();
-            const points = data[0].points.toFixed(2);
+            const points = parseFloat(data[0].points.toFixed(2));
             const timestamp = new Date(data[0].timestamp * 1000).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
 
             document.getElementById('points-' + index).textContent = points;
             document.getElementById('timestamp-' + index).textContent = timestamp;
-            totalSummary.pointsTotal += parseFloat(points);
+            totalSummary.pointsTotal += points;
 
         } catch (error) {
             document.getElementById('points-' + index).textContent = 'Error';
@@ -210,7 +210,7 @@
         const endIndex = Math.min(startIndex + batchSize, addresses.length);
         const batch = addresses.slice(startIndex, endIndex);
 
-        await proxyQuery(batch, startIndex);
+        await fetchProxyData(batch, startIndex);
 
         if (endIndex < addresses.length) {
             processProxyBatches(addresses, endIndex, batchSize);
@@ -220,71 +220,40 @@
         }
     }
 
-    async function proxyQuery(batch, startIndex) {
+    async function fetchProxyData(batch, startIndex) {
         try {
-            const [proxyResponse, ...pointsResponses] = await Promise.all([
-                fetch('https://linea-bot-aqgghflcjv.cn-hongkong.fcapp.run/getWalletInfo', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        wallet_addresses: batch
-                    })
-                }),
-                ...batch.map((address, index) => fetchPointsData(address, startIndex + index))
-            ]);
-
-            if (!proxyResponse.ok) {
-                throw new Error(`HTTP error! status: ${proxyResponse.status}`);
-            }
-
-            const data = await proxyResponse.json();
-
-            data.forEach((result, index) => {
-                const actualIndex = startIndex + index;
-                const row = document.getElementById('address-row-' + actualIndex);
-                if (result.error) {
-                    row.cells[3].textContent = 'Error';
-                    row.cells[4].textContent = 'Error';
-                } else {
-                    row.cells[3].textContent = result.points.toFixed(2);
-                    row.cells[4].textContent = new Date(result.timestamp * 1000).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
-                    totalSummary.pointsTotal += parseFloat(result.points.toFixed(2));
-                }
+            const response = await fetch('https://scroll-zldbvooqmg.cn-hongkong.fcapp.run/getWalletInfo', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ wallet_addresses: batch })
             });
 
-            updateTotalSummary();
-            addExportButton();
-
-        } catch (error) {
-            console.error('Error:', error);
-        }
-    }
-
-    async function fetchPointsData(address, index) {
-        try {
-            // 获取积分和时间戳
-            const response = await fetch(`https://kx58j6x5me.execute-api.us-east-1.amazonaws.com/scroll/wallet-points?walletAddress=${address}`);
-            
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
             const data = await response.json();
-            const points = data[0].points.toFixed(2);
-            const timestamp = new Date(data[0].timestamp * 1000).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
+            data.forEach((result, index) => {
+                const actualIndex = startIndex + index;
+                const row = document.getElementById('address-row-' + actualIndex);
+                if (result.error) {
+                    row.cells[2].textContent = 'Error';
+                    row.cells[3].textContent = 'Error';
+                } else {
+                    const points = parseFloat(result.points.toFixed(2));
+                    const timestamp = new Date(result.timestamp * 1000).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
+                    row.cells[2].textContent = points;
+                    row.cells[3].textContent = timestamp;
+                    totalSummary.pointsTotal += points;
+                }
+            });
 
-            document.getElementById('points-' + index).textContent = points;
-            totalSummary.pointsTotal += parseFloat(points);
-            document.getElementById('timestamp-' + index).textContent = timestamp;
-
-            // 实时更新累计信息
             updateTotalSummary();
 
         } catch (error) {
-            document.getElementById('points-' + index).textContent = 'Error';
-            document.getElementById('timestamp-' + index).textContent = 'Error';
+            console.error('Error:', error);
         }
     }
 
